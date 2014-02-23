@@ -29,6 +29,7 @@ normal=`echo -e "\033[m"`
 ## Variables
 version="2.0"
 domain="$1"
+results_dir="~/Desktop/automator_results/"
 
 
 ## Check for correct usage
@@ -72,24 +73,54 @@ header ()  {
 prerequisits () {
 					##need to make checks that the programs are installed first##
 					##														   ##
-					mkdir -p ~/Desktop/automator_results/
-					mkdir -p ~/Desktop/automator_results/$domain
-					mkdir -p ~/Desktop/automator_results/$domain/metagoofil
+					mkdir -p $results_dir
+					mkdir -p $results_dir$domain
+					mkdir -p $results_dir$domain/metagoofil
 				}
 
+zone_transfer () {
+					name_server=`dig ns $domain | grep -v '^;' | grep NS | cut -f5 | head  -1`
+					if dig @$name_server $domain axfr | grep "Transfer failed"
+					 	then
+					 		echo "$lcyan Zone Transfer Vulnerability: ($green No $lcyan)$normal"
+					 	else
+					 		echo "$lcyan Zone Transfer Vulnerability: ($red Yes $lcyan)$normal"
+					fi
+}
+
 DNSrecon () {
-				echo "Run intense scan? [y/N]"
+				echo "Run intense DNS scan? [y/N]"
 				read intense
 
 				if [[ $intense  == y ]]; 
 					then
-						dnslist="dnslistlong"
+						dnslist="dnslistlong.txt"
 					else
-						dnslist="dnslistshort"
-				fi
+						dnslist="dnslistshort.txt"
+				fi			
 
-				echo $dnslist
+				zone_transfer
+				
+				echo "$yellow Running DNS recon stage"
+				echo ""
+				./programs/dnsrecon/dnsrecon.py -t brt,std,axfr -D $dnslist -d $domain > $results_dir/$domain/full_dnsrecon.txt
+				cat $results_dir/$domain/full_dnsrecon.txt | grep '[^\.][0-9]\{1,3\}\.[0-9]\{1,3\}\.[0-9]\{1,3\}\.[0-9]\{1,3\}[^\.]' | grep -vE 'Trying|TCP|MX|NS|SOA|Has' | awk {'print $3 "\t" $4'} | sort -u  | sed '/^$/d' > $results_dir/$domain/dnsrecon.txt 
+				echo "$lcyan Subdomains found: ($yellow `cat $results_dir/$domain/dnsrecon.txt | wc -l` $lcyan)$normal"
+				cat  $results_dir/$domain/dnsrecon.txt				
 			}
+
+email_harvest () {
+
+echo 2
+}
+
+
+user_harvest () {
+echo  2
+
+
+}
+
 
 
 usage $1
